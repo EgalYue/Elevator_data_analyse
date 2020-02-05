@@ -102,10 +102,7 @@ def getSensorStatus(t_list, sensor1_list, sensor2_list):
 
 
 
-diagnoseCSV('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/elevator_data.csv')
-getSensorStatus(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list)
-getSensorStatus(goin_t_list, goin_sensor1_list, goin_sensor2_list)
-getSensorStatus(goout_t_list, goout_sensor1_list, goout_sensor2_list)
+
 
 # plot
 def plot(t_list, sensor1_list, sensor2_list, title_str, htmlName):
@@ -122,7 +119,91 @@ def plot(t_list, sensor1_list, sensor2_list, title_str, htmlName):
 
     bar.render(htmlName)
 
+def statistic(sensor1_list, sensor2_list, flag):
+    # flag: '11' '10' '01' '00'
+    count = 0
+    if flag == '11':
+        for s1,s2 in zip(sensor1_list, sensor2_list):
+            if s1 != 0 and s2 != 0:
+                count = count + 1
+    elif flag == '10':
+        for s1, s2 in zip(sensor1_list, sensor2_list):
+            if s1 != 0 and s2 == 0:
+                count = count + 1
+    elif flag == '01':
+        for s1, s2 in zip(sensor1_list, sensor2_list):
+            if s1 == 0 and s2 != 0:
+                count = count + 1
+    elif flag == '00':
+        for s1, s2 in zip(sensor1_list, sensor2_list):
+            if s1 == 0 and s2 == 0:
+                count = count + 1
+    return count
 
-plot(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, 'rollback', 'rollback.html')
-plot(goin_t_list, goin_sensor1_list, goin_sensor2_list, 'goin', 'goin.html')
-plot(goout_t_list, goout_sensor1_list, goout_sensor2_list, 'goout', 'goout.html')
+def get_all_str(t_list, sensor1_list, sensor2_list):
+    l = len(t_list)
+    flag_11 = statistic(sensor1_list, sensor2_list, '11')
+    flag_10 = statistic(sensor1_list, sensor2_list, '10')
+    flag_01 = statistic(sensor1_list, sensor2_list, '01')
+    flag_00 = statistic(sensor1_list, sensor2_list, '00')
+
+    res = str(l) + " " + str(flag_11) + " " + str(flag_10) + " " + str(flag_01) + " " + str(flag_00)
+    return res
+
+def statistic_3_actions(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list,
+                        goin_t_list, goin_sensor1_list, goin_sensor2_list,
+                        goout_t_list, goout_sensor1_list, goout_sensor2_list):
+
+    with open('example_data/statistics.txt', 'w') as f:
+        describe_str0 = "# s1Y_s2Y: 传感器1,传感器2同时被触发的次数\n"
+        describe_str1 = "# s1Y_s2N: 传感器1被触发,但是传感器2没有被触发的次数\n"
+        describe_str2 = "# s1N_s2Y: 传感器1没有被触发,但是传感器2被触发的次数\n"
+        describe_str3 = "# s1N_s2N: 传感器1,传感器2同时没有被触发的次数\n"
+        head = "行为总次数 s1Y_s2Y s1Y_s2N s1N_s2Y s1N_s2N\n"
+
+
+        f.write(describe_str0)
+        f.write(describe_str1)
+        f.write(describe_str2)
+        f.write(describe_str3)
+        f.write('\n')
+        # rollback
+        f.write("#行为1: 没成功进入电梯, rollback\n")
+        f.write(head)
+        f.write(get_all_str(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list))
+        f.write("\n")
+
+        # goin
+        f.write('\n')
+        f.write("#行为2: 进入电梯\n")
+        f.write(head)
+        f.write(get_all_str(goin_t_list, goin_sensor1_list, goin_sensor2_list))
+        f.write("\n")
+
+        # goout
+        f.write('\n')
+        f.write("#行为3: 出梯\n")
+        f.write(head)
+        f.write(get_all_str(goout_t_list, goout_sensor1_list, goout_sensor2_list))
+        f.write("\n")
+
+
+
+
+
+
+if __name__ == '__main__':
+
+    diagnoseCSV('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/elevator_data.csv')
+    getSensorStatus(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list)
+    getSensorStatus(goin_t_list, goin_sensor1_list, goin_sensor2_list)
+    getSensorStatus(goout_t_list, goout_sensor1_list, goout_sensor2_list)
+
+
+    plot(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, 'rollback', 'rollback.html')
+    plot(goin_t_list, goin_sensor1_list, goin_sensor2_list, 'goin', 'goin.html')
+    plot(goout_t_list, goout_sensor1_list, goout_sensor2_list, 'goout', 'goout.html')
+
+    statistic_3_actions(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list,
+                        goin_t_list, goin_sensor1_list, goin_sensor2_list,
+                        goout_t_list, goout_sensor1_list, goout_sensor2_list)
