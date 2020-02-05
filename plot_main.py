@@ -57,7 +57,6 @@ def diagnoseCSV(file_path):
                 end_rt = convert_ts_to_realTime(end_ts) + '.' + str(end_ts)[-3:]
                 rollback_t_list.append(go_in_elevator_time + '~' + end_rt)
 
-            # TODO
             elif line[1] == 'go out elevator': # succ, Inf_Event != 0. twice: in and out.
                 # 1. go in
                 go_in_elevator_time = line[2]
@@ -84,34 +83,41 @@ def readTXT(file_path): # this file can be very big!!!
 BIG_LIST = readTXT('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/Air_log2.txt')
 
 
-def count_sensor_status(begin_ts, end_ts):
+def count_sensor_status(begin_ts, end_ts, t_threshold):
+    # TODO time_threshold
     sensor1_tri = 0
     sensor2_tri  = 0
+
+    last_1_ts = 0
+    last_2_ts = 0
+
     for line in BIG_LIST:
         line = line.strip('\n')
         if not line:
             continue
 
         this_ts = line.split(',')[1]
-        fix_ts = int(this_ts[:-3])
+        fix_ts = int(this_ts[:-3]) # ms
         if begin_ts <= fix_ts and fix_ts <= end_ts:
             inf_event = line.split(',')[-2]
-            if inf_event == '1':
+            if inf_event == '1' and fix_ts - last_1_ts >= 1000:
+                last_1_ts = fix_ts
                 sensor1_tri = sensor1_tri + 1
-            elif inf_event == '2':
+            elif inf_event == '2' and fix_ts - last_2_ts >= 1000:
+                last_2_ts = fix_ts
                 sensor2_tri = sensor2_tri + 1
 
         elif fix_ts > end_ts:
             break
     return sensor1_tri, sensor2_tri
 
-def getSensorStatus(t_list, sensor1_list, sensor2_list):
+def getSensorStatus(t_list, sensor1_list, sensor2_list, t_threshold):
     for each in t_list:
         begin_t = each.split('~')[0]
         end_t = each.split('~')[1]
         begin_ts = realTime_to_timeStamp(begin_t)
         end_ts = realTime_to_timeStamp(end_t)
-        sensor1_num, sensor2_num = count_sensor_status(begin_ts, end_ts)
+        sensor1_num, sensor2_num = count_sensor_status(begin_ts, end_ts, t_threshold)
         sensor1_list.append(sensor1_num)
         sensor2_list.append(sensor2_num)
 
@@ -212,9 +218,9 @@ if __name__ == '__main__':
     filter_robot_ID('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/elevator_data.csv', 'EVT6-2-16')
     # read temp.csv
     diagnoseCSV('/home/yuehu/PycharmProjects/Elevator_data_analyse/temp.csv')
-    getSensorStatus(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list)
-    getSensorStatus(goin_t_list, goin_sensor1_list, goin_sensor2_list)
-    getSensorStatus(goout_t_list, goout_sensor1_list, goout_sensor2_list)
+    getSensorStatus(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, 1) # t_threshold = 1s
+    getSensorStatus(goin_t_list, goin_sensor1_list, goin_sensor2_list, 1)# t_threshold = 1s
+    getSensorStatus(goout_t_list, goout_sensor1_list, goout_sensor2_list, 1)# t_threshold = 1s
 
 
     plot(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, 'rollback', 'rollback.html')
