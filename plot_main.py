@@ -29,6 +29,21 @@ goout_sensor1_list = []
 goout_sensor2_list = []
 
 
+def filter_robot_ID(file_path, desired_ID):
+    res = []
+    with open(file_path, 'r') as f:
+        lines = csv.reader(f)
+        for line in lines:
+            if line[7] == desired_ID:
+                res.append(line)
+
+    with open('temp.csv', 'w') as f:
+        for each in res:
+            csvWriter = csv.writer(f,  dialect='excel')
+            csvWriter.writerow(each)
+
+
+
 def diagnoseCSV(file_path):
     with open(file_path, 'r') as f:
         lines = csv.reader(f)
@@ -193,8 +208,10 @@ def statistic_3_actions(rollback_t_list, rollback_sensor1_list, rollback_sensor2
 
 
 if __name__ == '__main__':
-
-    diagnoseCSV('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/elevator_data.csv')
+    # given robot_ID, save to temp.csv
+    filter_robot_ID('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/elevator_data.csv', 'EVT6-2-16')
+    # read temp.csv
+    diagnoseCSV('/home/yuehu/PycharmProjects/Elevator_data_analyse/temp.csv')
     getSensorStatus(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list)
     getSensorStatus(goin_t_list, goin_sensor1_list, goin_sensor2_list)
     getSensorStatus(goout_t_list, goout_sensor1_list, goout_sensor2_list)
@@ -207,3 +224,4 @@ if __name__ == '__main__':
     statistic_3_actions(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list,
                         goin_t_list, goin_sensor1_list, goin_sensor2_list,
                         goout_t_list, goout_sensor1_list, goout_sensor2_list)
+
