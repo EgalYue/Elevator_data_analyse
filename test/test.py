@@ -80,7 +80,7 @@ def realTime_to_timeStamp(rt_str):
 
 begin_ts = realTime_to_timeStamp('2020-01-20 15:56:42.290')
 end_ts = realTime_to_timeStamp('2020-01-20 15:57:03.092')
-BIG_LIST = readTXT('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/Air_log2.txt')
+BIG_LIST = readTXT('/example_data/Air_log2.txt')
 count_sensor_status(begin_ts,end_ts)
 
 

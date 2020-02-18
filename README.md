@@ -2,17 +2,13 @@
 
 
 ## 使用说明  
-`python3 diagnose.py --csv_path ./example_data/elevator_data.csv --txt_path ./example_data/Air_log2.txt`  
-
-or  
-
-`python3 diagnose.py --csv_path ./example_data/elevator_data.csv --txt_path ./example_data/Air_log2.txt --res_path ./result.txt`  
-
-不符合的结果写入`result.txt`  
+直接运行 `run_plot_main.sh` 即可, 运行结果默认保存在当前目录. 也可以指定输出名录, 具体参数自行查看 `plot_main.py`  
 
 
-
-### 生成三段图表(1. 没成功进电梯,rollback 2. 进梯 3. 出梯)  
+### 生成三段图表  
+1. 没成功进电梯,rollback.html     
+2. 进梯, goin.html  
+3. 出梯, goout.html    
 横轴为某一行为的时间段, 纵轴为传感器的响应次数  
 
 

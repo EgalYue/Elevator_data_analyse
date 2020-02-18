@@ -2,18 +2,9 @@ import csv
 import datetime
 from datetime import datetime
 import time
-
-def realTime_to_timeStamp(rt_str):
-    datetime_obj = datetime.strptime(rt_str, "%Y-%m-%d %H:%M:%S.%f")
-    obj_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
-    return obj_stamp # ms
-
-def convert_ts_to_realTime(timeNum): # ms
-    timeStamp = float(timeNum/1000)
-    timeArray = time.localtime(timeStamp)
-    otherStyleTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-    # print(type( otherStyleTime))
-    return otherStyleTime # str
+import os
+import sys
+import argparse
 
 
 rollback_t_list = []
@@ -29,7 +20,20 @@ goout_sensor1_list = []
 goout_sensor2_list = []
 
 
-def filter_robot_ID(file_path, desired_ID):
+def realTime_to_timeStamp(rt_str):
+    datetime_obj = datetime.strptime(rt_str, "%Y-%m-%d %H:%M:%S.%f")
+    obj_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
+    return obj_stamp # ms
+
+def convert_ts_to_realTime(timeNum): # ms
+    timeStamp = float(timeNum/1000)
+    timeArray = time.localtime(timeStamp)
+    otherStyleTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+    # print(type( otherStyleTime))
+    return otherStyleTime # str
+
+
+def filter_robot_ID(file_path, desired_ID, result_file_path):
     res = []
     with open(file_path, 'r') as f:
         lines = csv.reader(f)
@@ -37,11 +41,10 @@ def filter_robot_ID(file_path, desired_ID):
             if line[7] == desired_ID:
                 res.append(line)
 
-    with open('temp.csv', 'w') as f:
+    with open(result_file_path, 'w') as f:
         for each in res:
             csvWriter = csv.writer(f,  dialect='excel')
             csvWriter.writerow(each)
-
 
 
 def diagnoseCSV(file_path):
@@ -49,7 +52,7 @@ def diagnoseCSV(file_path):
         lines = csv.reader(f)
         for line in lines:
             # print(line)
-            if line[1] == 'go in elevator': # not succ, Inf_Event == 0
+            if line[1] == 'go in elevator': # Inf_Event == 0
                 go_in_elevator_time = line[2]
                 goin_rollback_duration = float(line[5]) if line[5] != '' else 0
                 begin_ts = realTime_to_timeStamp(go_in_elevator_time) # ms
@@ -57,7 +60,7 @@ def diagnoseCSV(file_path):
                 end_rt = convert_ts_to_realTime(end_ts) + '.' + str(end_ts)[-3:]
                 rollback_t_list.append(go_in_elevator_time + '~' + end_rt)
 
-            elif line[1] == 'go out elevator': # succ, Inf_Event != 0. twice: in and out.
+            elif line[1] == 'go out elevator': # Inf_Event != 0. twice: in and out.
                 # 1. go in
                 go_in_elevator_time = line[2]
                 goin_duration = float(line[4]) if line[4] != '' else 0
@@ -80,11 +83,9 @@ def readTXT(file_path): # this file can be very big!!!
         lines = f.readlines()
         return lines
 
-BIG_LIST = readTXT('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/Air_log2.txt')
-
 
 def count_sensor_status(begin_ts, end_ts, t_threshold):
-    # TODO time_threshold
+    # time_threshold [s]
     sensor1_tri = 0
     sensor2_tri  = 0
 
@@ -100,10 +101,10 @@ def count_sensor_status(begin_ts, end_ts, t_threshold):
         fix_ts = int(this_ts[:-3]) # ms
         if begin_ts <= fix_ts and fix_ts <= end_ts:
             inf_event = line.split(',')[-2]
-            if inf_event == '1' and fix_ts - last_1_ts >= 1000:
+            if inf_event == '1' and fix_ts - last_1_ts >= t_threshold * 1000: # t_threshold * 1000
                 last_1_ts = fix_ts
                 sensor1_tri = sensor1_tri + 1
-            elif inf_event == '2' and fix_ts - last_2_ts >= 1000:
+            elif inf_event == '2' and fix_ts - last_2_ts >= t_threshold * 1000: # t_threshold * 1000
                 last_2_ts = fix_ts
                 sensor2_tri = sensor2_tri + 1
 
@@ -123,9 +124,8 @@ def getSensorStatus(t_list, sensor1_list, sensor2_list, t_threshold):
 
 
 
+#====================== plot ====================================
 
-
-# plot
 def plot(t_list, sensor1_list, sensor2_list, title_str, htmlName):
     from pyecharts.charts.basic_charts.bar import Bar #导入相应包
     from pyecharts import options as opts
@@ -173,9 +173,10 @@ def get_all_str(t_list, sensor1_list, sensor2_list):
 
 def statistic_3_actions(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list,
                         goin_t_list, goin_sensor1_list, goin_sensor2_list,
-                        goout_t_list, goout_sensor1_list, goout_sensor2_list):
+                        goout_t_list, goout_sensor1_list, goout_sensor2_list,
+                        result_path):
 
-    with open('example_data/statistics.txt', 'w') as f:
+    with open(result_path, 'w') as f:
         describe_str0 = "# s1Y_s2Y: 传感器1,传感器2同时被触发的次数\n"
         describe_str1 = "# s1Y_s2N: 传感器1被触发,但是传感器2没有被触发的次数\n"
         describe_str2 = "# s1N_s2Y: 传感器1没有被触发,但是传感器2被触发的次数\n"
@@ -209,25 +210,81 @@ def statistic_3_actions(rollback_t_list, rollback_sensor1_list, rollback_sensor2
         f.write("\n")
 
 
+def parse_args():
+    """
+    parse arguments
+    """
+    parse = argparse.ArgumentParser(description = "Give a name!")
+    parse.add_argument("--csv_path", metavar="csv_path", nargs="?",
+                       help= "csv file path", required=True)
+    parse.add_argument("--txt_path", metavar="txt_path", nargs="?",
+                       help="txt file path", required=True)
+    parse.add_argument("--robot_ID", metavar="robot_ID", nargs="?",
+                       help="robot_ID", required=True)
+    parse.add_argument("--t_threshold", metavar="t_threshold", nargs="?",
+                       help="t_threshold", required=True)
+    parse.add_argument("--rollback_html_path", metavar="rollback_html_path", nargs="?", default="rollback.html",
+                       help="rollback_html_path", required=False)
+    parse.add_argument("--goin_html_path", metavar="goin_html_path", nargs="?", default="goin.html",
+                       help="goin_html_path", required=False)
+    parse.add_argument("--goout_html_path", metavar="goout_html_path", nargs="?", default="goout.html",
+                       help="goout_html_path", required=False)
+    parse.add_argument("--statistic_path", metavar="statistic_path", nargs="?", default="statistics.txt",
+                       help="statistic_path", required=False)
+
+    if len(sys.argv) < 2:
+        parse.print_help()
+        sys.exit(1)
+
+    parsed = parse.parse_args()
+    return parsed
 
 
 
 
 if __name__ == '__main__':
-    # given robot_ID, save to temp.csv
-    filter_robot_ID('/home/yuehu/PycharmProjects/Elevator_data_analyse/example_data/elevator_data.csv', 'EVT6-2-16')
-    # read temp.csv
-    diagnoseCSV('/home/yuehu/PycharmProjects/Elevator_data_analyse/temp.csv')
-    getSensorStatus(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, 1) # t_threshold = 1s
-    getSensorStatus(goin_t_list, goin_sensor1_list, goin_sensor2_list, 1)# t_threshold = 1s
-    getSensorStatus(goout_t_list, goout_sensor1_list, goout_sensor2_list, 1)# t_threshold = 1s
+    curr_proj_dir = os.path.dirname(os.path.realpath(__file__))
 
+    args = parse_args()
+    # input
+    input_csv = args.csv_path
+    input_txt = args.txt_path
+    robot_ID = args.robot_ID  #'EVT6-2-16'
+    t_threshold = int(args.t_threshold) # 1s
 
-    plot(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, 'rollback', 'rollback.html')
-    plot(goin_t_list, goin_sensor1_list, goin_sensor2_list, 'goin', 'goin.html')
-    plot(goout_t_list, goout_sensor1_list, goout_sensor2_list, 'goout', 'goout.html')
+    # output
+    rollback_html_path  = os.path.join(curr_proj_dir, args.rollback_html_path)
+    goin_html_path = os.path.join(curr_proj_dir, args.goin_html_path)
+    goout_html_path = os.path.join(curr_proj_dir, args.goout_html_path)
+    statistic_path = os.path.join(curr_proj_dir, args.statistic_path)
+
+    BIG_LIST = readTXT(input_txt)
+
+    # filter given robot_ID, save to temp.csv
+    temp_file_path = os.path.join(curr_proj_dir, 'temp.csv')
+    filter_robot_ID(input_csv, robot_ID, temp_file_path)
+
+    # read temp.csv and extract useful time
+    diagnoseCSV(temp_file_path)
+
+    print(">>> Runing, this maybe take a long time...")
+    getSensorStatus(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, t_threshold)
+    getSensorStatus(goin_t_list, goin_sensor1_list, goin_sensor2_list, t_threshold)
+    getSensorStatus(goout_t_list, goout_sensor1_list, goout_sensor2_list, t_threshold)
+
+    print(">>> Generating rollback html...")
+    plot(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list, 'rollback', rollback_html_path)
+    print(">>> Generating goin html...")
+    plot(goin_t_list, goin_sensor1_list, goin_sensor2_list, 'goin', goin_html_path)
+    print(">>> Generating goout html...")
+    plot(goout_t_list, goout_sensor1_list, goout_sensor2_list, 'goout', goout_html_path)
+    print(">>> Done!")
 
     statistic_3_actions(rollback_t_list, rollback_sensor1_list, rollback_sensor2_list,
                         goin_t_list, goin_sensor1_list, goin_sensor2_list,
-                        goout_t_list, goout_sensor1_list, goout_sensor2_list)
+                        goout_t_list, goout_sensor1_list, goout_sensor2_list,
+                        statistic_path)
+
+    # remove temp.csv
+    os.remove(temp_file_path)
 
